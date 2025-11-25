@@ -1,21 +1,23 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth.store';
-import { chatService } from '@/services/chat.service';
+import { chatService, DocumentListItem } from '@/services/chat.service';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 import { ChatMessage } from '@/types';
+import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
 
 export default function ChatPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, logout } = useAuthStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -23,6 +25,12 @@ export default function ChatPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch documents
+  const { data: documents = [], isLoading: isLoadingDocuments } = useQuery({
+    queryKey: ['documents'],
+    queryFn: chatService.getDocuments,
+  });
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -35,14 +43,20 @@ export default function ChatPage() {
   const uploadMutation = useMutation({
     mutationFn: chatService.uploadDocument,
     onSuccess: (data) => {
-      alert(`Documento enviado com sucesso! ID: ${data.documentId}`);
+      toast.success('Documento enviado com sucesso!', {
+        description: `O arquivo foi processado e está pronto para análise.`,
+      });
       setSelectedFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      // Refetch documents list
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
     onError: (error: any) => {
-      alert(`Erro ao enviar documento: ${error.response?.data?.message || error.message}`);
+      toast.error('Erro ao enviar documento', {
+        description: error.response?.data?.message || error.message,
+      });
     },
   });
 
@@ -64,7 +78,9 @@ export default function ChatPage() {
       setInput('');
     },
     onError: (error: any) => {
-      alert(`Erro ao enviar mensagem: ${error.response?.data?.message || error.message}`);
+      toast.error('Erro ao enviar mensagem', {
+        description: error.response?.data?.message || error.message,
+      });
     },
   });
 
@@ -93,7 +109,14 @@ export default function ChatPage() {
 
   const handleUploadDocument = () => {
     if (selectedFile) {
-      uploadMutation.mutate(selectedFile);
+      toast.promise(
+        uploadMutation.mutateAsync(selectedFile),
+        {
+          loading: 'Enviando documento...',
+          success: 'Documento enviado com sucesso! Pronto para análise.',
+          error: (err) => `Erro ao enviar: ${err.response?.data?.message || err.message}`,
+        }
+      );
     }
   };
 
@@ -129,13 +152,13 @@ export default function ChatPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Chat Area */}
           <div className="lg:col-span-2">
-            <Card className="h-[calc(100vh-250px)] flex flex-col">
-              <CardHeader>
+            <Card className="h-[calc(100vh-250px)] flex flex-col overflow-hidden">
+              <CardHeader className="flex-shrink-0">
                 <CardTitle>Conversa</CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 flex flex-col p-0">
+              <CardContent className="flex-1 flex flex-col p-0 min-h-0 overflow-hidden">
                 {/* Messages */}
-                <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+                <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-gray-500">
                       <div className="text-center">
@@ -170,7 +193,13 @@ export default function ChatPage() {
                                 : 'bg-gray-100 text-gray-900'
                             }`}
                           >
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                            {message.role === 'assistant' ? (
+                              <div className="text-sm prose prose-sm max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-2 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900">
+                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                              </div>
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                            )}
                             <p
                               className={`text-xs mt-1 ${
                                 message.role === 'user' ? 'text-blue-200' : 'text-gray-500'
@@ -205,7 +234,7 @@ export default function ChatPage() {
                       )}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
 
                 {/* Input Area */}
                 <div className="border-t p-4">
@@ -279,6 +308,46 @@ export default function ChatPage() {
                     e responder perguntas específicas sobre eles.
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Documents List */}
+            <Card className="mt-4">
+              <CardHeader>
+                <CardTitle className="text-sm">📄 Documentos Enviados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingDocuments ? (
+                  <p className="text-sm text-gray-500">Carregando documentos...</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Nenhum documento enviado ainda.
+                  </p>
+                ) : (
+                  <ul className="space-y-2 max-h-60 overflow-y-auto">
+                    {documents.map((doc) => (
+                      <li
+                        key={doc.id}
+                        className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="text-lg">
+                            {doc.type?.includes('pdf') ? '📕' : 
+                             doc.type?.includes('image') ? '🖼️' : '📄'}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {doc.filename}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(doc.createdAt).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
 

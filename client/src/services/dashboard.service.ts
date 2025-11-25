@@ -3,7 +3,7 @@ import { DashboardData, Medication, Exam, Appointment } from '@/types';
 
 export const dashboardService = {
   async getDashboardData(): Promise<DashboardData> {
-    const response = await api.get<DashboardData>('/dashboard');
+    const response = await api.get<DashboardData>('/dashboard/overview');
     return response.data;
   },
 

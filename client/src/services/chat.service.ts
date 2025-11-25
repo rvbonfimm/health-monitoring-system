@@ -1,9 +1,21 @@
 import api from '@/lib/axios';
-import { ChatMessage, ChatRequest, ChatResponse } from '@/types';
+import { ChatMessage, ChatRequest, ChatResponse, Document } from '@/types';
+
+export interface DocumentListItem {
+  id: string;
+  filename: string;
+  url: string;
+  type: string;
+  tags: string[];
+  content?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const chatService = {
   async sendMessage(data: ChatRequest): Promise<ChatResponse> {
-    const response = await api.post<ChatResponse>('/chat', data);
+    const response = await api.post<ChatResponse>('/chat/message', data);
     return response.data;
   },
 
@@ -22,6 +34,19 @@ export const chatService = {
       },
     });
 
+    // Backend returns 'id', map it to 'documentId' for frontend
+    return {
+      url: response.data.url,
+      documentId: response.data.id,
+    };
+  },
+
+  async getDocuments(): Promise<DocumentListItem[]> {
+    const response = await api.get<DocumentListItem[]>('/documents');
     return response.data;
+  },
+
+  async deleteDocument(id: string): Promise<void> {
+    await api.delete(`/documents/${id}`);
   },
 };

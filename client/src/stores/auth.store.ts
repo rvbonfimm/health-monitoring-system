@@ -25,11 +25,15 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       setAuth: (token, user) => {
         localStorage.setItem('token', token);
+        // Set cookie for middleware authentication
+        document.cookie = `token=${token}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
         set({ token, user, isAuthenticated: true });
       },
       logout: () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        // Remove cookie
+        document.cookie = 'token=; path=/; max-age=0';
         set({ token: null, user: null, isAuthenticated: false });
       },
     }),
