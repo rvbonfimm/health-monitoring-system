@@ -11,23 +11,39 @@ export class ChatService {
 
   constructor(private prisma: PrismaService) {
     const apiKey = process.env.OPENAI_API_KEY;
-    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const model = process.env.OPENAI_MODEL || 'gpt-4o';
+    const baseURL = process.env.OPENAI_BASE_URL;
 
     if (!apiKey) {
       this.logger.warn('OPENAI_API_KEY not configured. AI chat will be disabled.');
     } else {
-      this.chatModel = new ChatOpenAI({
+      const config: any = {
         apiKey,
         model,
         temperature: 0.7,
-      });
+      };
+
+      // Support custom base URL (e.g., GitHub Models)
+      if (baseURL) {
+        config.configuration = {
+          baseURL,
+        };
+        this.logger.log(`Using custom API endpoint: ${baseURL}`);
+      }
+
+      this.chatModel = new ChatOpenAI(config);
     }
   }
 
   async chat(patientId: string, message: string, conversationId?: string) {
     if (!this.chatModel) {
       return {
-        response: 'AI chat is not configured. Please set OPENAI_API_KEY.',
+        message: {
+          id: `msg_${Date.now()}`,
+          role: 'assistant',
+          content: 'AI chat is not configured. Please set OPENAI_API_KEY.',
+          createdAt: new Date(),
+        },
         conversationId: conversationId || 'disabled',
         sources: [],
       };
@@ -103,9 +119,22 @@ export class ChatService {
     }
 
     if (documents.length > 0) {
-      contextParts.push('\nDocumentos disponíveis:');
+      contextParts.push('\nDocumentos do Paciente:');
       documents.forEach(doc => {
-        contextParts.push(`- ${doc.filename}${doc.tags.length > 0 ? ` [${doc.tags.join(', ')}]` : ''}`);
+        contextParts.push(`\n--- Documento: ${doc.filename} ---`);
+        if (doc.content) {
+          // Limit content to avoid token overflow (max ~4000 chars per doc)
+          const maxLength = 4000;
+          const truncatedContent = doc.content.length > maxLength 
+            ? doc.content.substring(0, maxLength) + '... [conteúdo truncado]'
+            : doc.content;
+          contextParts.push(truncatedContent);
+        } else {
+          contextParts.push('[Conteúdo não extraído - arquivo binário ou imagem]');
+        }
+        if (doc.tags.length > 0) {
+          contextParts.push(`Tags: ${doc.tags.join(', ')}`);
+        }
       });
     }
 
@@ -148,7 +177,12 @@ Responda de forma clara, empática e sempre priorizando a segurança do paciente
     // For MVP, we'll just return the response
 
     return {
-      response,
+      message: {
+        id: `msg_${Date.now()}`,
+        role: 'assistant',
+        content: response,
+        createdAt: new Date(),
+      },
       conversationId: finalConversationId,
       sources: documents.map(doc => ({
         documentId: doc.id,

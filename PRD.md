@@ -16,7 +16,7 @@ Criar um sistema web seguro que centralize dados médicos de pacientes com cânc
 
 * **Familiar/cuidador principal**
 * **Paciente** (se tiver condição de uso)
-* **Médico(es)** — inicialmente como usuários convidados para consulta de dados (sem tentar substituir prontuário oficial).
+* **Médico(as)** — inicialmente como usuários convidados para consulta de dados (sem tentar substituir prontuário oficial).
 
 ---
 

@@ -27,13 +27,23 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
 
-    // Create user
+    // Create user with associated patient profile
     const user = await this.prisma.user.create({
       data: {
         email: registerDto.email,
         password: hashedPassword,
         name: registerDto.name,
         role: registerDto.role || 'VIEWER',
+        patients: {
+          create: {
+            name: registerDto.name,
+            birthDate: new Date(registerDto.birthdate),
+            diagnosis: null,
+          },
+        },
+      },
+      include: {
+        patients: true,
       },
     });
 
@@ -50,7 +60,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
       },
-      token,
+      access_token: token,
     };
   }
 
@@ -84,7 +94,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
       },
-      token,
+      access_token: token,
     };
   }
 

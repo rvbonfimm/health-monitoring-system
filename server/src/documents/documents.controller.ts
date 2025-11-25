@@ -51,8 +51,26 @@ export class DocumentsController {
 
     const patientId = req.user.patientId;
     const userId = req.user.userId;
-    const tagsArray = tags ? JSON.parse(tags) : [];
-    const metadataObj = metadata ? JSON.parse(metadata) : {};
+
+    if (!patientId) {
+      throw new BadRequestException('User does not have an associated patient profile. Please re-login.');
+    }
+
+    let tagsArray: string[] = [];
+    let metadataObj: any = {};
+
+    try {
+      tagsArray = tags ? JSON.parse(tags) : [];
+    } catch {
+      // If tags is not valid JSON, treat as single tag
+      tagsArray = tags ? [tags] : [];
+    }
+
+    try {
+      metadataObj = metadata ? JSON.parse(metadata) : {};
+    } catch {
+      metadataObj = {};
+    }
 
     return this.documentsService.uploadDocument(file, patientId, userId, tagsArray, metadataObj);
   }
