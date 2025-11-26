@@ -89,7 +89,7 @@ A complete health management system with an AI assistant, developed to centraliz
 
 ## 🔬 Development Methodology: SDD
 
-This project is being developed using **SDD (Spec-Driven Development)** with the [**spec-kit**](https://github.com/spec-kit/spec-kit) tool.
+This project is being developed using **SDD (Spec-Driven Development)** with the [**spec-kit**](https://github.com/github/spec-kit) tool.
 
 ### What is SDD?
 
@@ -108,7 +108,7 @@ This project is being developed using **SDD (Spec-Driven Development)** with the
 - ✅ Automate validations
 - ✅ Facilitate team collaboration
 
-> 💡 For more information about SDD and spec-kit, check the [official documentation](https://github.com/spec-kit/spec-kit).
+> 💡 For more information about SDD and spec-kit, check the [official documentation](https://github.com/github/spec-kit).
 
 ---
 
